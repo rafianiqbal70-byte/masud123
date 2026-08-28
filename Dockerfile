@@ -1,12 +1,11 @@
 FROM python:3.13-slim
 
-# Install system dependencies required for Chrome and ChromeDriver
+# Install system dependencies & Chromium browser for Selenium
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
     unzip \
     libxi6 \
-    libgconf-2-4 \
     libnss3 \
     libnspr4 \
     libatk1.0-0 \
@@ -17,7 +16,6 @@ RUN apt-get update && apt-get install -y \
     libexpat1 \
     libfontconfig1 \
     libgbm1 \
-    libgcc1 \
     libglib2.0-0 \
     libgtk-3-0 \
     libpango-1.0-0 \
@@ -29,16 +27,13 @@ RUN apt-get update && apt-get install -y \
     libxdamage1 \
     libxext6 \
     libxfixes3 \
-    libxi6 \
     libxrandr2 \
     libxrender1 \
     libxss1 \
     libxtst6 \
     ca-certificates \
     fonts-liberation \
-    libappindicator3-1 \
     libasound2 \
-    libgbm-dev \
     chromium \
     chromium-driver \
     && rm -rf /var/lib/apt/lists/*
