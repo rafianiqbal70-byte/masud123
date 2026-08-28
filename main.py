@@ -369,14 +369,30 @@ def solve_math_captcha(text):
     return ""
 
 async def background_selenium_scraper(application):
-    logger.info("Initializing Background Selenium WebDriver...")
+    logger.info("Initializing Background Selenium WebDriver for Railway...")
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--remote-debugging-port=9222")
     
-    driver = webdriver.Chrome(options=options)
+    if os.path.exists("/usr/bin/chromium"):
+        options.binary_location = "/usr/bin/chromium"
+    elif os.path.exists("/usr/bin/chromium-browser"):
+        options.binary_location = "/usr/bin/chromium-browser"
+
+    try:
+        from selenium.webdriver.chrome.service import Service
+        if os.path.exists("/usr/bin/chromedriver"):
+            service = Service(executable_path="/usr/bin/chromedriver")
+            driver = webdriver.Chrome(service=service, options=options)
+        else:
+            driver = webdriver.Chrome(options=options)
+    except Exception as e:
+        logger.error(f"Fallback direct Chrome init failed: {e}")
+        driver = webdriver.Chrome(options=options)
     
     try:
         driver.get(LOGIN_URL)
@@ -957,8 +973,7 @@ async def dispatch_leaderboard(message):
     if scores:
         out = f"🏆 <b>Daily Ranking (Since 12 AM Today):</b>\n\n"
         for i, (name, score) in enumerate(scores[:10], 1):
-            cl_name = name[:-3] if len(name) > 3 else "User"
-            out += f"{i}. {cl_name}... - OTP Success: {score}\n"
+            out += f"{i}. <b>{html.escape(name)}</b> - OTP Success: <b>{score}</b>\n"
         await message.reply_text(out, parse_mode='HTML')
     else: 
         await message.reply_text("⚠️ Terminal Data: No activity yet today.")
