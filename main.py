@@ -307,10 +307,12 @@ async def engine_process_signal(application, record, silent=False):
             total_bal = 0.0
             payout = 0.0
 
+            if matched_assign and matched_assign.get('country'):
+                region = matched_assign.get('country')
+
             if u_id:
                 u_data = CACHE_USERS.get(str(u_id), {})
                 u_name = u_data.get('name', 'User') if isinstance(u_data, dict) else 'User'
-                region = matched_assign.get('country', region)
                 
                 payout = await get_country_payout(region)
                 curr_bal = float(u_data.get('balance', 0.0))
@@ -335,7 +337,7 @@ async def engine_process_signal(application, record, silent=False):
                 f"📱 <b>Number:</b> <code>{r_num}</code>\n"
                 f"🔑 <b>OTP Code:</b> <code>{otp_code}</code>\n"
                 f"💼 <b>Service:</b> {service_val}\n"
-                f"🌍 <b>Country:</b> {region}\n"
+                f"🌍 <b>Country:</b> {get_flag(region)} {region}\n"
                 f"✉️ <b>Message:</b> {escaped_body}\n\n"
                 f"📡 <b>Source:</b> LIVE"
             )
@@ -570,6 +572,14 @@ async def router_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_db()
         await query.edit_message_text(f"🗑️ Stock cleared for {reg}")
 
+    elif data.startswith("adm_rate_"):
+        if uid not in ADMIN_IDS: return
+        country = data.replace("adm_rate_", "")
+        context.user_data['temp_rate_country'] = country
+        context.user_data['state'] = 'ADM_SET_RATE'
+        await query.message.reply_text(f"💰 Enter new OTP payout rate for <b>{country}</b> (e.g., 1.5):", parse_mode='HTML')
+        await query.answer()
+
     elif data == "adm_total_paid_show":
         if uid not in ADMIN_IDS: return
         limit_date = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d %H:%M:%S')
@@ -699,6 +709,17 @@ async def router_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if state == 'ADM_UP_C':
         context.user_data['temp_c'], context.user_data['state'] = raw, 'ADM_UP_F'
         await msg.reply_text(f"{get_flag(raw)} <b>Region set:</b> {raw}.\n📁 Now upload inventory .txt segment.", parse_mode='HTML')
+        return
+    elif state == 'ADM_SET_RATE':
+        try:
+            rate = float(raw)
+            country = context.user_data.get('temp_rate_country')
+            CACHE_RATES[country] = str(rate)
+            save_db()
+            await msg.reply_text(f"✅ Rate for <b>{country}</b> successfully updated to <b>Tk {rate}</b>.", parse_mode='HTML')
+        except ValueError:
+            await msg.reply_text("⚠️ Please enter a valid number for the rate.")
+        context.user_data['state'] = None
         return
     elif state == 'ADM_BROAD':
         asyncio.create_task(run_background_broadcast(context, raw))
@@ -839,7 +860,7 @@ async def dispatch_country_rate_ui(update, context):
     countries = set(b_val.get('country') for b_val in CACHE_STOCK.values() if isinstance(b_val, dict) and b_val.get('country'))
     if countries:
         btns = [[rich_btn(f"Rate: {c}", "primary", f"adm_rate_{c}")] for c in countries]
-        await send_rich_message(context.bot, update.message.chat_id, "💰 Select country:", btns)
+        await send_rich_message(context.bot, update.message.chat_id, "💰 Select country to set rate:", btns)
     else: await update.message.reply_text("⚠️ No countries found.")
 
 async def dispatch_country_user_limit_ui(update, context):
