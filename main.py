@@ -108,7 +108,7 @@ otp_process_lock = asyncio.locks.Lock() if hasattr(asyncio, "locks") else asynci
 # =========================================================================
 ADMIN_IDS = [6138186135, 6482184149, 8255112295]
 TOKEN = "8979357599:AAEzlAsC7UedQ9do74TlTx12STYLueb0e0k" 
-TARGET_GROUP_IDS = [-1003852486016, -1002924519484]  
+TARGET_GROUP_IDS = [-1003852486016, -1004340389110]  
 OTP_GROUP_LINK = "https://t.me/your_otp_group" 
 
 # Panel 1 Configs
@@ -283,6 +283,7 @@ async def engine_assign_batch(user_id, country_name, count):
         for num in assigned_numbers:
             clean = normalize_num(num)
             short_val = clean[skip_limit:] if len(clean) > skip_limit else clean
+            # ইউজারকে ফুল নাম্বার দেখানোর জন্য এখানে full-এই পুরো নাম্বার রাখা হয়েছে
             num_data_list.append({"full": clean, "short": short_val})
             
             assign_key = f"as_{clean}_{user_id}"
@@ -615,11 +616,13 @@ async def router_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             msg_numbers = ""
             for n in res['numbers']:
-                msg_numbers += f"📱 Number: <code>+{n['short']}</code>\n\n"
+                # এখানে full নম্বর দেখানোর জন্য n['full'] ব্যবহার করা হয়েছে যাতে উপরে ফুল নাম্বার বসে
+                msg_numbers += f"📱 Number: <code>+{n['full']}</code>\n\n"
             
             kb = [[rich_btn("⏳ Waiting for OTP...", "primary", "none")]]
             no_code_btns = []
             for n in res['numbers']:
+                # No Code বাটনে শর্ট নাম্বারটি কপি হওয়ার জন্য থাকবে
                 btn = rich_btn(f"No Code: {n['short']}", style="primary", copy_text=n['short'])
                 no_code_btns.append(btn)
             
@@ -955,8 +958,6 @@ async def handler_file_up(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     line = line.strip()
                     if not line or "User List" in line or "=====" in line: continue
                     
-                    # Regex দিয়ে ID, Name এবং Balance পার্স করার নিয়ম
-                    # যেমন: ID: 8120028655 | Name: Masud Boss Admin | Bal: Tk 5.6
                     id_match = re.search(r'ID:\s*(\d+)', line)
                     name_match = re.search(r'Name:\s*([^|]+)', line)
                     bal_match = re.search(r'Bal:\s*Tk\s*([\d\.]+)', line)
@@ -1206,7 +1207,7 @@ if __name__ == '__main__':
         instance.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), router_text))
         instance.add_error_handler(error_handler)
         
-        logger.info("Bot started successfully with User Data Upload feature.")
+        logger.info("Bot started successfully with full number display and CC limit fixed.")
         instance.run_polling(drop_pending_updates=True)
     except Exception as e:
         logger.critical(f"Panic Shutdown: {e}")
