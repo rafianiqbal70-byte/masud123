@@ -26,9 +26,6 @@ from telegram.ext import (
     CallbackQueryHandler
 )
 
-# =========================================================================
-# --- WINDOWS TERMINAL UNICODE FIX & ADVANCED LOGGING ---
-# =========================================================================
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding='utf-8')
@@ -48,9 +45,6 @@ logger = logging.getLogger(__name__)
 
 logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 
-# =========================================================================
-# --- LOCAL FILE STORAGE DATABASE CONFIGURATION ---
-# =========================================================================
 DB_FILE = "bot_local_database.json"
 
 def load_db():
@@ -103,21 +97,16 @@ CACHE_WITHDRAWALS = db_data["withdrawals"]
 
 otp_process_lock = asyncio.locks.Lock() if hasattr(asyncio, "locks") else asyncio.Lock()
 
-# =========================================================================
-# --- BOT CONFIGURATION & GLOBAL SETTINGS ---
-# =========================================================================
 ADMIN_IDS = [6138186135, 6482184149, 8255112295]
 TOKEN = "8979357599:AAEzlAsC7UedQ9do74TlTx12STYLueb0e0k" 
 TARGET_GROUP_IDS = [-1003852486016, -1004340389110]  
 OTP_GROUP_LINK = "https://t.me/your_otp_group" 
 
-# Panel 1 Configs
 LOGIN_URL_1 = "http://151.80.19.204/ints/login"
 TARGET_URL_1 = "http://151.80.19.204/ints/agent/SMSCDRReports"
 USERNAME_1 = "Umair12"
 PASSWORD_1 = "Arfat44#"
 
-# Panel 2 Configs (Teleroutex)
 LOGIN_URL_2 = "https://teleroutex.com/auth/login"
 TARGET_URL_2 = "https://teleroutex.com/Agent/Reports"
 USERNAME_2 = "Umair_MT"
@@ -283,7 +272,6 @@ async def engine_assign_batch(user_id, country_name, count):
         for num in assigned_numbers:
             clean = normalize_num(num)
             short_val = clean[skip_limit:] if len(clean) > skip_limit else clean
-            # ইউজারকে ফুল নাম্বার দেখানোর জন্য এখানে full-এই পুরো নাম্বার রাখা হয়েছে
             num_data_list.append({"full": clean, "short": short_val})
             
             assign_key = f"as_{clean}_{user_id}"
@@ -389,9 +377,6 @@ def solve_math_captcha(text):
         elif op == '*': return str(num1 * num2)
     return ""
 
-# =========================================================================
-# --- PANEL 1 SCRAPER (Original CMS) ---
-# =========================================================================
 async def background_selenium_scraper_1(application):
     logger.info("Initializing Selenium Scraper for Panel 1...")
     options = Options()
@@ -469,7 +454,7 @@ async def background_selenium_scraper_1(application):
         if driver: driver.quit()
 
 # =========================================================================
-# --- PANEL 2 SCRAPER (Teleroutex) ---
+# --- PANEL 2 SCRAPER (Teleroutex - Memory Optimized to Prevent Crashes) ---
 # =========================================================================
 async def background_selenium_scraper_2(application):
     logger.info("Initializing Selenium Scraper for Panel 2 (Teleroutex)...")
@@ -478,50 +463,60 @@ async def background_selenium_scraper_2(application):
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--js-flags=--max-old-space-size=128") # মেমরি লিমিট ফিক্সড করে ক্র্যাশ রোধ করা
     
-    driver = None
-    try:
-        driver = webdriver.Chrome(options=options)
-        driver.get(LOGIN_URL_2)
-        wait = WebDriverWait(driver, 15)
-        
-        username_field = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Username' or @type='text']")))
-        password_field = driver.find_element(By.XPATH, "//input[@placeholder='Password' or @type='password']")
-        
-        username_field.clear(); username_field.send_keys(USERNAME_2)
-        password_field.clear(); password_field.send_keys(PASSWORD_2)
-        
-        page_text = driver.find_element(By.TAG_NAME, "body").text
-        captcha_answer = solve_math_captcha(page_text)
-        
-        if captcha_answer:
+    while True:
+        driver = None
+        try:
+            driver = webdriver.Chrome(options=options)
+            driver.get(LOGIN_URL_2)
+            wait = WebDriverWait(driver, 15)
+            
+            username_field = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Username' or @type='text']")))
+            password_field = driver.find_element(By.XPATH, "//input[@placeholder='Password' or @type='password']")
+            
+            username_field.clear(); username_field.send_keys(USERNAME_2)
+            password_field.clear(); password_field.send_keys(PASSWORD_2)
+            
+            page_text = driver.find_element(By.TAG_NAME, "body").text
+            captcha_answer = solve_math_captcha(page_text)
+            
+            if captcha_answer:
+                try:
+                    captcha_field = driver.find_element(By.XPATH, "//input[@placeholder='Enter captcha' or contains(@placeholder, 'captcha')]")
+                    captcha_field.clear()
+                    captcha_field.send_keys(captcha_answer)
+                except:
+                    pass
+            
             try:
-                captcha_field = driver.find_element(By.XPATH, "//input[@placeholder='Enter captcha' or contains(@placeholder, 'captcha')]")
-                captcha_field.clear()
-                captcha_field.send_keys(captcha_answer)
+                submit_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Continue')]")
+                submit_btn.click()
             except:
                 pass
-        
-        try:
-            submit_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Continue')]")
-            submit_btn.click()
-        except:
-            pass
 
-        await asyncio.sleep(4)
-        driver.get(TARGET_URL_2)
-        await asyncio.sleep(3)
-        
-        logger.info("Teleroutex Selenium scraper active...")
-        
-        while True:
-            try:
+            await asyncio.sleep(4)
+            driver.get(TARGET_URL_2)
+            await asyncio.sleep(3)
+            
+            logger.info("Teleroutex Selenium scraper active...")
+            
+            # মেমরি লিক এড়াতে নির্দিষ্ট সাইকেল পর পর ব্রাফজার রি-ইনস্ট্যান্স করার ব্যবস্থা
+            cycle_count = 0
+            while True:
                 if await get_config_val("api_status_Teleroutex", "1") == "0":
                     await asyncio.sleep(3.0)
                     continue
 
+                if cycle_count > 50:  # প্রতি ৫০ সাইকেল পর ব্রাউজার রিস্টার্ট হবে যাতে ক্র্যাশ না করে
+                    logger.info("Refreshing Teleroutex browser instance to free memory...")
+                    break
+
                 driver.refresh()
-                await asyncio.sleep(2.5)
+                cycle_count += 1
+                await asyncio.sleep(3.0)
                 
                 try:
                     driver.execute_script("var obj = document.querySelector('.table-responsive, table'); if(obj){obj.scrollLeft = obj.scrollWidth;}")
@@ -558,17 +553,15 @@ async def background_selenium_scraper_2(application):
                             'number': number, 'sms_text': cleaned_sms,
                             'service_val': cli_val, 'country_val': matched_region
                         }, silent=False)
-            except Exception as inner_e:
-                logger.error(f"Scrape loop error (Panel 2): {inner_e}")
-            await asyncio.sleep(3.0)
-    except Exception as e:
-        logger.critical(f"Selenium critical failure (Panel 2): {e}")
-    finally:
-        if driver: driver.quit()
+                await asyncio.sleep(3.0)
+        except Exception as inner_e:
+            logger.error(f"Scrape loop error (Panel 2): {inner_e}")
+            await asyncio.sleep(5.0)
+        finally:
+            if driver:
+                try: driver.quit()
+                except: pass
 
-# =========================================================================
-# --- HANDLERS & ROUTERS ---
-# =========================================================================
 async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not user: return
@@ -616,13 +609,11 @@ async def router_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             msg_numbers = ""
             for n in res['numbers']:
-                # এখানে full নম্বর দেখানোর জন্য n['full'] ব্যবহার করা হয়েছে যাতে উপরে ফুল নাম্বার বসে
                 msg_numbers += f"📱 Number: <code>+{n['full']}</code>\n\n"
             
             kb = [[rich_btn("⏳ Waiting for OTP...", "primary", "none")]]
             no_code_btns = []
             for n in res['numbers']:
-                # No Code বাটনে শর্ট নাম্বারটি কপি হওয়ার জন্য থাকবে
                 btn = rich_btn(f"No Code: {n['short']}", style="primary", copy_text=n['short'])
                 no_code_btns.append(btn)
             
@@ -782,7 +773,7 @@ async def router_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.reply_text("📥 <b>Inventory Hub:</b> Enter region label:"); context.user_data['state'] = 'ADM_UP_C'
             return
         elif raw == "📂 Upload User Data":
-            await msg.reply_text("📂 <b>User Data Upload:</b> Please upload your user list `.txt` file (Format: `ID: XXXXX | Name: XXXXX | Bal: Tk X.X`).", parse_mode='HTML')
+            await msg.reply_text("📂 <b>User Data Upload:</b> Please upload your user list `.txt` file.", parse_mode='HTML')
             context.user_data['state'] = 'ADM_USER_UP_F'
             return
         elif raw == "🗑️ Clear Stock": 
@@ -1207,7 +1198,7 @@ if __name__ == '__main__':
         instance.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), router_text))
         instance.add_error_handler(error_handler)
         
-        logger.info("Bot started successfully with full number display and CC limit fixed.")
+        logger.info("Bot started successfully with Panel 2 memory crash fix.")
         instance.run_polling(drop_pending_updates=True)
     except Exception as e:
         logger.critical(f"Panic Shutdown: {e}")
