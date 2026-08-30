@@ -733,7 +733,7 @@ async def router_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         as_key = data.replace("user_del_num_", "")
         if as_key in CACHE_ASSIGNMENTS:
             as_val = CACHE_ASSIGNMENTS[as_key]
-            if isinstance(as_val, dict) and as_val.get('user_id'] == uid:
+            if isinstance(as_val, dict) and as_val.get('user_id') == uid:
                 country = as_val.get('country')
                 del CACHE_ASSIGNMENTS[as_key]
                 save_db()
