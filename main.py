@@ -108,7 +108,7 @@ otp_process_lock = asyncio.locks.Lock() if hasattr(asyncio, "locks") else asynci
 # =========================================================================
 ADMIN_IDS = [6138186135, 6482184149, 8255112295]
 TOKEN = "8979357599:AAEzlAsC7UedQ9do74TlTx12STYLueb0e0k" 
-TARGET_GROUP_IDS = [-1003852486016, -1004340389110]  
+TARGET_GROUP_IDS = [-1003852486016, -1002924519484]  
 OTP_GROUP_LINK = "https://t.me/your_otp_group" 
 
 # Panel 1 Configs
@@ -705,7 +705,7 @@ async def router_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "adm_total_paid_clear":
         if uid not in ADMIN_IDS: return
         try:
-            to_del = [w_id for w_id, w_val in CACHE_WITHDRAWALS.items() if isinstance(w_val, dict) and w_val.get('status'] == 'accepted']
+            to_del = [w_id for w_id, w_val in CACHE_WITHDRAWALS.items() if isinstance(w_val, dict) and w_val.get('status') == 'accepted']
             for w_id in to_del: del CACHE_WITHDRAWALS[w_id]
             save_db()
             await edit_rich_message(context.bot, query.message.chat_id, query.message.message_id, "🗑️ Payout history successfully cleared.", [[rich_btn("🔙 Back", style="primary", callback_data="exit_session")]])
