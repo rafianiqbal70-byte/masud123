@@ -234,7 +234,7 @@ async def edit_rich_message(bot, chat_id, message_id, text, keyboard_rows, parse
 
 def build_admin_main():
     kb = [
-        [KeyboardButton("📥 Number Upload"), KeyboardButton("📂 All Data Upload")],
+        [KeyboardButton("📥 Number Upload"), KeyboardButton("📂 Upload User Data")],
         [KeyboardButton("🗑️ Clear Stock"), KeyboardButton("👥 User List")],
         [KeyboardButton("📊 Panel Stats"), KeyboardButton("💸 Withdraw Requests")],
         [KeyboardButton("💰 Total Paid"), KeyboardButton("📢 Broadcast")],
@@ -705,7 +705,7 @@ async def router_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "adm_total_paid_clear":
         if uid not in ADMIN_IDS: return
         try:
-            to_del = [w_id for w_id, w_val in CACHE_WITHDRAWALS.items() if isinstance(w_val, dict) and w_val.get('status') == 'accepted']
+            to_del = [w_id for w_id, w_val in CACHE_WITHDRAWALS.items() if isinstance(w_val, dict) and w_val.get('status'] == 'accepted']
             for w_id in to_del: del CACHE_WITHDRAWALS[w_id]
             save_db()
             await edit_rich_message(context.bot, query.message.chat_id, query.message.message_id, "🗑️ Payout history successfully cleared.", [[rich_btn("🔙 Back", style="primary", callback_data="exit_session")]])
@@ -733,7 +733,7 @@ async def router_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         as_key = data.replace("user_del_num_", "")
         if as_key in CACHE_ASSIGNMENTS:
             as_val = CACHE_ASSIGNMENTS[as_key]
-            if isinstance(as_val, dict) and as_val.get('user_id') == uid:
+            if isinstance(as_val, dict) and as_val.get('user_id'] == uid:
                 country = as_val.get('country')
                 del CACHE_ASSIGNMENTS[as_key]
                 save_db()
@@ -778,9 +778,9 @@ async def router_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if raw == "📥 Number Upload":
             await msg.reply_text("📥 <b>Inventory Hub:</b> Enter region label:"); context.user_data['state'] = 'ADM_UP_C'
             return
-        elif raw == "📂 All Data Upload":
-            await msg.reply_text("📂 <b>All Data Hub:</b> Please upload your `.txt` file containing numbers (Format per line: `Country: Number` or just numbers if default, e.g., `Ghana_Telecel_Zyron01: 233XXXXXXXXX`).", parse_mode='HTML')
-            context.user_data['state'] = 'ADM_ALL_UP_F'
+        elif raw == "📂 Upload User Data":
+            await msg.reply_text("📂 <b>User Data Upload:</b> Please upload your user list `.txt` file (Format: `ID: XXXXX | Name: XXXXX | Bal: Tk X.X`).", parse_mode='HTML')
+            context.user_data['state'] = 'ADM_USER_UP_F'
             return
         elif raw == "🗑️ Clear Stock": 
             await dispatch_wipe_ui(update, context)
@@ -943,42 +943,42 @@ async def handler_file_up(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if 'path' in locals() and os.path.exists(path): os.remove(path)
             context.user_data['state'] = None
 
-    elif state == 'ADM_ALL_UP_F':
+    elif state == 'ADM_USER_UP_F':
         try:
             doc = await update.message.document.get_file()
-            path = f"tmp_all_{uid}.txt"
+            path = f"tmp_user_{uid}.txt"
             await doc.download_to_drive(path)
             
-            country_groups = {}
+            imported_count = 0
             with open(path, "r", encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
-                    if not line: continue
-                    if ":" in line:
-                        parts = line.split(":", 1)
-                        c_name = parts[0].strip()
-                        c_num = parts[1].strip()
-                        if c_name not in country_groups: country_groups[c_name] = []
-                        country_groups[c_name].append(c_num)
-                    elif "-" in line and not line.startswith("+"):
-                        parts = line.split("-", 1)
-                        c_name = parts[0].strip()
-                        c_num = parts[1].strip()
-                        if c_name not in country_groups: country_groups[c_name] = []
-                        country_groups[c_name].append(c_num)
-                    else:
-                        if "General" not in country_groups: country_groups["General"] = []
-                        country_groups["General"].append(line)
-
-            total_added = 0
-            for c_name, nums in country_groups.items():
-                CACHE_STOCK[f"batch_{c_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}"] = {"country": c_name, "numbers": nums}
-                total_added += len(nums)
+                    if not line or "User List" in line or "=====" in line: continue
+                    
+                    # Regex দিয়ে ID, Name এবং Balance পার্স করার নিয়ম
+                    # যেমন: ID: 8120028655 | Name: Masud Boss Admin | Bal: Tk 5.6
+                    id_match = re.search(r'ID:\s*(\d+)', line)
+                    name_match = re.search(r'Name:\s*([^|]+)', line)
+                    bal_match = re.search(r'Bal:\s*Tk\s*([\d\.]+)', line)
+                    
+                    if id_match:
+                        u_id = id_match.group(1)
+                        u_name = name_match.group(1).strip() if name_match else "User"
+                        u_bal = float(bal_match.group(1)) if bal_match else 0.0
+                        
+                        CACHE_USERS[u_id] = {
+                            'name': u_name,
+                            'balance': u_bal,
+                            'otp_count': CACHE_USERS.get(u_id, {}).get('otp_count', 0),
+                            'status': 'active',
+                            'joined_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
+                        imported_count += 1
             
             save_db()
-            await update.message.reply_text(f"✅ All Data Upload Successful!\nTotal {total_added} numbers sorted and added across {len(country_groups)} categories.")
+            await update.message.reply_text(f"✅ User Data Upload Successful!\nSuccessfully imported/updated <b>{imported_count}</b> users into the database.", parse_mode='HTML')
         except Exception as e:
-            await update.message.reply_text(f"❌ Error parsing file: {e}")
+            await update.message.reply_text(f"❌ Error parsing user data file: {e}")
         finally:
             if 'path' in locals() and os.path.exists(path): os.remove(path)
             context.user_data['state'] = None
@@ -1206,7 +1206,7 @@ if __name__ == '__main__':
         instance.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), router_text))
         instance.add_error_handler(error_handler)
         
-        logger.info("Bot started successfully with CC limit fully fixed.")
+        logger.info("Bot started successfully with User Data Upload feature.")
         instance.run_polling(drop_pending_updates=True)
     except Exception as e:
         logger.critical(f"Panic Shutdown: {e}")
