@@ -26,6 +26,9 @@ from telegram.ext import (
     CallbackQueryHandler
 )
 
+# =========================================================================
+# --- WINDOWS TERMINAL UNICODE FIX & ADVANCED LOGGING ---
+# =========================================================================
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding='utf-8')
@@ -45,6 +48,9 @@ logger = logging.getLogger(__name__)
 
 logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 
+# =========================================================================
+# --- LOCAL FILE STORAGE DATABASE CONFIGURATION ---
+# =========================================================================
 DB_FILE = "bot_local_database.json"
 
 def load_db():
@@ -65,8 +71,7 @@ def load_db():
             "min_withdraw": "1000",
             "global_cc_limit": "3",
             "default_user_stock_limit": "200",
-            "api_status_Main": "1",
-            "api_status_Teleroutex": "1"
+            "api_status_Main": "1"
         },
         "country_rates": {},
         "country_limits": {},
@@ -97,20 +102,18 @@ CACHE_WITHDRAWALS = db_data["withdrawals"]
 
 otp_process_lock = asyncio.locks.Lock() if hasattr(asyncio, "locks") else asyncio.Lock()
 
+# =========================================================================
+# --- BOT CONFIGURATION & GLOBAL SETTINGS ---
+# =========================================================================
 ADMIN_IDS = [6138186135, 6482184149, 8255112295]
 TOKEN = "8979357599:AAEzlAsC7UedQ9do74TlTx12STYLueb0e0k" 
 TARGET_GROUP_IDS = [-1003852486016, -1004340389110]  
 OTP_GROUP_LINK = "https://t.me/your_otp_group" 
 
-LOGIN_URL_1 = "http://151.80.19.204/ints/login"
-TARGET_URL_1 = "http://151.80.19.204/ints/agent/SMSCDRReports"
-USERNAME_1 = "Umair12"
-PASSWORD_1 = "Arfat44#"
-
-LOGIN_URL_2 = "https://teleroutex.com/auth/login"
-TARGET_URL_2 = "https://teleroutex.com/Agent/Reports"
-USERNAME_2 = "Umair_MT"
-PASSWORD_2 = "Arfat44#"
+LOGIN_URL = "http://151.80.19.204/ints/login"
+TARGET_URL = "http://151.80.19.204/ints/agent/SMSCDRReports"
+USERNAME = "Umair12"
+PASSWORD = "Arfat44#"
 
 processed_ids = set()
 
@@ -129,8 +132,7 @@ def init_default_settings():
         'min_withdraw': '1000',
         'global_cc_limit': '3',
         'default_user_stock_limit': '200',
-        'api_status_Main': '1',
-        'api_status_Teleroutex': '1'
+        'api_status_Main': '1'
     }
     for k, v in defaults.items():
         if k not in CACHE_SETTINGS:
@@ -140,19 +142,19 @@ def init_default_settings():
 init_default_settings()
 
 COUNTRY_FLAGS = {
-    "afghanistan": "🇦🇫", "ghana": "🇬🇭",
-    "azerbaijan": "🇦🇿", "bangladesh": "🇧🇩",
-    "india": "🇮🇳", "pakistan": "🇵🇰",
-    "russia": "🇷🇺", "lebanon": "🇱🇧",
-    "nigeria": "🇳🇬"
+    "afghanistan": "\U0001f1e6\U0001f1eb", "ghana": "\U0001f1ec\U0001f1ed",
+    "azerbaijan": "\U0001f1e6\U0001f1ff", "bangladesh": "\U0001f1e7\U0001f1e9",
+    "india": "\U0001f1ee\U0001f1f3", "pakistan": "\U0001f1f5\U0001f1f0",
+    "russia": "\U0001f1f7\U0001f1fa", "lebanon": "\U0001f1f1\U0001f1e7",
+    "nigeria": "\U0001f1f3\U0001f1ec"
 }
 
 def get_flag(country_name):
     clean_name = re.sub(r'[^a-z]', '', str(country_name).strip().lower())
-    if not clean_name: return "🌐"
+    if not clean_name: return "\U0001f310"
     for k, v in COUNTRY_FLAGS.items():
-        if clean_name.startswith(re.sub(r'[^a-z]', '', k)): return v
-    return "🌐"
+        if re.sub(r'[^a-z]', '', k) == clean_name: return v
+    return "\U0001f310"
 
 async def get_config_val(key, default):
     return str(CACHE_SETTINGS.get(key, default))
@@ -180,15 +182,6 @@ def parse_otp_body(text):
     if not text: return "N/A"
     match = re.search(r'\b(\d{4,8})\b', text)
     return match.group(1) if match else "N/A"
-
-def clean_teleroutex_message(text):
-    match = re.search(r'(Do not share your confirmation code with anyone:\s*\d+)', text, re.IGNORECASE)
-    if match:
-        return match.group(1)
-    match_fallback = re.search(r'([A-Za-z0-9\s,\-\:\.]{10,100}\d{4,8})', text)
-    if match_fallback:
-        return match_fallback.group(1).strip()
-    return text.strip()
 
 def rich_btn(text, style=None, callback_data=None, url=None, copy_text=None):
     btn = {"text": text}
@@ -223,13 +216,13 @@ async def edit_rich_message(bot, chat_id, message_id, text, keyboard_rows, parse
 
 def build_admin_main():
     kb = [
-        [KeyboardButton("📥 Number Upload"), KeyboardButton("📂 Upload User Data")],
-        [KeyboardButton("🗑️ Clear Stock"), KeyboardButton("👥 User List")],
-        [KeyboardButton("📊 Panel Stats"), KeyboardButton("💸 Withdraw Requests")],
-        [KeyboardButton("💰 Total Paid"), KeyboardButton("📢 Broadcast")],
-        [KeyboardButton("🚫 Ban User"), KeyboardButton("✅ Unban User")],
-        [KeyboardButton("⚙️ Set CC Limit"), KeyboardButton("💰 Country Rate Set")],
-        [KeyboardButton("📦 Country Stock Limit"), KeyboardButton("/start")]
+        [KeyboardButton("📥 Number Upload"), KeyboardButton("🗑️ Clear Stock")],
+        [KeyboardButton("👥 User List"), KeyboardButton("📊 Panel Stats")],
+        [KeyboardButton("💸 Withdraw Requests"), KeyboardButton("💰 Total Paid")],
+        [KeyboardButton("📢 Broadcast"), KeyboardButton("🚫 Ban User")],
+        [KeyboardButton("✅ Unban User"), KeyboardButton("⚙️ Set CC Limit")],
+        [KeyboardButton("💰 Country Rate Set"), KeyboardButton("📦 Country Stock Limit")],
+        [KeyboardButton("/start")]
     ]
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
 
@@ -305,7 +298,7 @@ async def engine_process_signal(application, record, silent=False):
             for as_key, as_data in CACHE_ASSIGNMENTS.items():
                 if isinstance(as_data, dict) and as_data.get('status') == 'assigned':
                     as_num = normalize_num(as_data.get('number', ''))
-                    if n_clean.endswith(as_num) or as_num.endswith(n_clean) or n_clean[-8:] == as_num[-8:]:
+                    if as_num.endswith(n_clean[-8:]) if len(n_clean) >= 8 else as_num == n_clean:
                         matched_assign = as_data
                         break
 
@@ -314,12 +307,10 @@ async def engine_process_signal(application, record, silent=False):
             total_bal = 0.0
             payout = 0.0
 
-            if matched_assign and matched_assign.get('country'):
-                region = matched_assign.get('country')
-
             if u_id:
                 u_data = CACHE_USERS.get(str(u_id), {})
                 u_name = u_data.get('name', 'User') if isinstance(u_data, dict) else 'User'
+                region = matched_assign.get('country', region)
                 
                 payout = await get_country_payout(region)
                 curr_bal = float(u_data.get('balance', 0.0))
@@ -344,7 +335,7 @@ async def engine_process_signal(application, record, silent=False):
                 f"📱 <b>Number:</b> <code>{r_num}</code>\n"
                 f"🔑 <b>OTP Code:</b> <code>{otp_code}</code>\n"
                 f"💼 <b>Service:</b> {service_val}\n"
-                f"🌍 <b>Country:</b> {get_flag(region)} {region}\n"
+                f"🌍 <b>Country:</b> {region}\n"
                 f"✉️ <b>Message:</b> {escaped_body}\n\n"
                 f"📡 <b>Source:</b> LIVE"
             )
@@ -377,25 +368,25 @@ def solve_math_captcha(text):
         elif op == '*': return str(num1 * num2)
     return ""
 
-async def background_selenium_scraper_1(application):
-    logger.info("Initializing Selenium Scraper for Panel 1...")
+async def background_selenium_scraper(application):
+    logger.info("Initializing Background Selenium WebDriver...")
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     
-    driver = None
+    driver = webdriver.Chrome(options=options)
+    
     try:
-        driver = webdriver.Chrome(options=options)
-        driver.get(LOGIN_URL_1)
+        driver.get(LOGIN_URL)
         wait = WebDriverWait(driver, 10)
         
         username_field = wait.until(EC.presence_of_element_located((By.NAME, "username")))
         password_field = driver.find_element(By.NAME, "password")
         
-        username_field.clear(); username_field.send_keys(USERNAME_1)
-        password_field.clear(); password_field.send_keys(PASSWORD_1)
+        username_field.clear(); username_field.send_keys(USERNAME)
+        password_field.clear(); password_field.send_keys(PASSWORD)
         
         page_text = driver.find_element(By.TAG_NAME, "body").text
         captcha_answer = solve_math_captcha(page_text)
@@ -407,8 +398,37 @@ async def background_selenium_scraper_1(application):
         
         driver.find_element(By.TAG_NAME, "button").click()
         await asyncio.sleep(3)
-        driver.get(TARGET_URL_1)
+        driver.get(TARGET_URL)
         await asyncio.sleep(3)
+        
+        initial_messages = []
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+        table = soup.find('table')
+        if table:
+            for row in table.find_all('tr')[1:]:
+                cols = row.find_all('td')
+                if len(cols) >= 6:
+                    date_time = cols[0].text.strip()
+                    country_val = cols[1].text.strip()
+                    number = cols[2].text.strip()
+                    service_val = cols[3].text.strip()
+                    sms_text = cols[5].text.strip()
+                    
+                    if not number or number == "0" or not sms_text or sms_text == "0": continue
+                    
+                    initial_messages.append({
+                        'number': number, 'sms_text': sms_text,
+                        'service_val': service_val, 'country_val': country_val if country_val else "General"
+                    })
+        
+        for msg_data in reversed(initial_messages[:3]):
+            n_clean = normalize_num(msg_data['number'])
+            m_hash = hashlib.md5(f"{n_clean}_{msg_data['sms_text']}".encode()).hexdigest()
+            processed_ids.add(m_hash)
+            await engine_process_signal(application, msg_data, silent=True)
+            await asyncio.sleep(0.5)
+
+        logger.info("Selenium loop active. Monitoring new messages...")
         
         while True:
             try:
@@ -417,7 +437,7 @@ async def background_selenium_scraper_1(application):
                     continue
 
                 driver.refresh()
-                await asyncio.sleep(2.0)
+                await asyncio.sleep(1.5)
                 
                 soup = BeautifulSoup(driver.page_source, 'html.parser')
                 table = soup.find('table')
@@ -425,143 +445,33 @@ async def background_selenium_scraper_1(application):
                     for row in table.find_all('tr')[1:]:
                         cols = row.find_all('td')
                         if len(cols) >= 6:
-                            raw_country_val = cols[1].text.strip()
+                            date_time = cols[0].text.strip()
+                            country_val = cols[1].text.strip()
                             number = cols[2].text.strip()
                             service_val = cols[3].text.strip()
                             sms_text = cols[5].text.strip()
                             
                             if not number or number == "0" or not sms_text or sms_text == "0": continue
                             
-                            matched_region = raw_country_val if raw_country_val else "General"
                             n_clean = normalize_num(number)
-                            for as_val in CACHE_ASSIGNMENTS.values():
-                                if isinstance(as_val, dict) and as_val.get('status') == 'assigned':
-                                    as_num = normalize_num(as_val.get('number', ''))
-                                    if n_clean.endswith(as_num) or as_num.endswith(n_clean) or n_clean[-8:] == as_num[-8:]:
-                                        matched_region = as_val.get('country', raw_country_val)
-                                        break
-
-                            await engine_process_signal(application, {
-                                'number': number, 'sms_text': sms_text,
-                                'service_val': service_val, 'country_val': matched_region
-                            }, silent=False)
+                            m_hash = hashlib.md5(f"{n_clean}_{sms_text}".encode()).hexdigest()
+                            
+                            if m_hash not in processed_ids:
+                                await engine_process_signal(application, {
+                                    'number': number, 'sms_text': sms_text,
+                                    'service_val': service_val, 'country_val': country_val if country_val else "General"
+                                }, silent=False)
             except Exception as inner_e:
-                logger.error(f"Scrape cycle error (Panel 1): {inner_e}")
-            await asyncio.sleep(3.0)
+                logger.error(f"Scrape cycle error: {inner_e}")
+            await asyncio.sleep(2.0)
     except Exception as e:
-        logger.critical(f"Selenium critical failure (Panel 1): {e}")
+        logger.critical(f"Selenium critical failure: {e}")
     finally:
-        if driver: driver.quit()
+        driver.quit()
 
 # =========================================================================
-# --- PANEL 2 SCRAPER (Teleroutex - Memory Optimized to Prevent Crashes) ---
+# --- HANDLERS & ROUTERS ---
 # =========================================================================
-async def background_selenium_scraper_2(application):
-    logger.info("Initializing Selenium Scraper for Panel 2 (Teleroutex)...")
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--disable-software-rasterizer")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--js-flags=--max-old-space-size=128") # মেমরি লিমিট ফিক্সড করে ক্র্যাশ রোধ করা
-    
-    while True:
-        driver = None
-        try:
-            driver = webdriver.Chrome(options=options)
-            driver.get(LOGIN_URL_2)
-            wait = WebDriverWait(driver, 15)
-            
-            username_field = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Username' or @type='text']")))
-            password_field = driver.find_element(By.XPATH, "//input[@placeholder='Password' or @type='password']")
-            
-            username_field.clear(); username_field.send_keys(USERNAME_2)
-            password_field.clear(); password_field.send_keys(PASSWORD_2)
-            
-            page_text = driver.find_element(By.TAG_NAME, "body").text
-            captcha_answer = solve_math_captcha(page_text)
-            
-            if captcha_answer:
-                try:
-                    captcha_field = driver.find_element(By.XPATH, "//input[@placeholder='Enter captcha' or contains(@placeholder, 'captcha')]")
-                    captcha_field.clear()
-                    captcha_field.send_keys(captcha_answer)
-                except:
-                    pass
-            
-            try:
-                submit_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Continue')]")
-                submit_btn.click()
-            except:
-                pass
-
-            await asyncio.sleep(4)
-            driver.get(TARGET_URL_2)
-            await asyncio.sleep(3)
-            
-            logger.info("Teleroutex Selenium scraper active...")
-            
-            # মেমরি লিক এড়াতে নির্দিষ্ট সাইকেল পর পর ব্রাফজার রি-ইনস্ট্যান্স করার ব্যবস্থা
-            cycle_count = 0
-            while True:
-                if await get_config_val("api_status_Teleroutex", "1") == "0":
-                    await asyncio.sleep(3.0)
-                    continue
-
-                if cycle_count > 50:  # প্রতি ৫০ সাইকেল পর ব্রাউজার রিস্টার্ট হবে যাতে ক্র্যাশ না করে
-                    logger.info("Refreshing Teleroutex browser instance to free memory...")
-                    break
-
-                driver.refresh()
-                cycle_count += 1
-                await asyncio.sleep(3.0)
-                
-                try:
-                    driver.execute_script("var obj = document.querySelector('.table-responsive, table'); if(obj){obj.scrollLeft = obj.scrollWidth;}")
-                except:
-                    pass
-
-                soup = BeautifulSoup(driver.page_source, 'html.parser')
-                table = soup.find('table')
-                if table:
-                    rows = table.find_all('tr')[1:]
-                    for row in rows[:5]:
-                        row_text = row.get_text(" ", strip=True)
-                        
-                        num_match = re.search(r'\b(\d{10,15})\b', row_text)
-                        number = num_match.group(1) if num_match else ""
-                        
-                        cli_match = re.search(r'\b(1xbet|AUTHMSG|Telegram|Google|WhatsApp|Facebook)\b', row_text, re.IGNORECASE)
-                        cli_val = cli_match.group(1) if cli_match else "Unknown"
-                        
-                        if not number or number == "0": continue
-                        
-                        cleaned_sms = clean_teleroutex_message(row_text)
-                        
-                        matched_region = "General"
-                        n_clean = normalize_num(number)
-                        for as_val in CACHE_ASSIGNMENTS.values():
-                            if isinstance(as_val, dict) and as_val.get('status') == 'assigned':
-                                as_num = normalize_num(as_val.get('number', ''))
-                                if n_clean.endswith(as_num) or as_num.endswith(n_clean) or n_clean[-8:] == as_num[-8:]:
-                                    matched_region = as_val.get('country', 'General')
-                                    break
-
-                        await engine_process_signal(application, {
-                            'number': number, 'sms_text': cleaned_sms,
-                            'service_val': cli_val, 'country_val': matched_region
-                        }, silent=False)
-                await asyncio.sleep(3.0)
-        except Exception as inner_e:
-            logger.error(f"Scrape loop error (Panel 2): {inner_e}")
-            await asyncio.sleep(5.0)
-        finally:
-            if driver:
-                try: driver.quit()
-                except: pass
-
 async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not user: return
@@ -636,20 +546,6 @@ async def router_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dash = build_admin_main() if uid in ADMIN_IDS else build_user_main()
         await context.bot.send_message(chat_id=uid, text="🎛️ Dashboard ready.", reply_markup=dash)
 
-    elif data == "tog_api_Main":
-        if uid not in ADMIN_IDS: return
-        current = await get_config_val("api_status_Main", "1")
-        new_val = "0" if current == "1" else "1"
-        await set_config_val("api_status_Main", new_val)
-        await dispatch_panel_stats_inline(query.message, context, edit=True)
-
-    elif data == "tog_api_Teleroutex":
-        if uid not in ADMIN_IDS: return
-        current = await get_config_val("api_status_Teleroutex", "1")
-        new_val = "0" if current == "1" else "1"
-        await set_config_val("api_status_Teleroutex", new_val)
-        await dispatch_panel_stats_inline(query.message, context, edit=True)
-
     elif data.startswith("adm_del_"):
         if uid not in ADMIN_IDS: return
         reg = data.replace("adm_del_", "")
@@ -657,30 +553,6 @@ async def router_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for b_id in to_del: del CACHE_STOCK[b_id]
         save_db()
         await query.edit_message_text(f"🗑️ Stock cleared for {reg}")
-
-    elif data.startswith("adm_rate_"):
-        if uid not in ADMIN_IDS: return
-        country = data.replace("adm_rate_", "")
-        context.user_data['temp_rate_country'] = country
-        context.user_data['state'] = 'ADM_SET_RATE'
-        await query.message.reply_text(f"💰 Enter new OTP payout rate for <b>{country}</b> (e.g., 1.5):", parse_mode='HTML')
-        await query.answer()
-
-    elif data.startswith("adm_cc_"):
-        if uid not in ADMIN_IDS: return
-        country = data.replace("adm_cc_", "")
-        context.user_data['temp_cc_country'] = country
-        context.user_data['state'] = 'ADM_SET_CC'
-        await query.message.reply_text(f"⚙️ Enter CC Limit (number of digits to skip) for <b>{country}</b> (e.g., 3):", parse_mode='HTML')
-        await query.answer()
-
-    elif data.startswith("adm_ulimit_"):
-        if uid not in ADMIN_IDS: return
-        country = data.replace("adm_ulimit_", "")
-        context.user_data['temp_ulimit_country'] = country
-        context.user_data['state'] = 'ADM_SET_ULIMIT'
-        await query.message.reply_text(f"📦 Enter max numbers a user can take for <b>{country}</b> (e.g., 10):", parse_mode='HTML')
-        await query.answer()
 
     elif data == "adm_total_paid_show":
         if uid not in ADMIN_IDS: return
@@ -772,10 +644,6 @@ async def router_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if raw == "📥 Number Upload":
             await msg.reply_text("📥 <b>Inventory Hub:</b> Enter region label:"); context.user_data['state'] = 'ADM_UP_C'
             return
-        elif raw == "📂 Upload User Data":
-            await msg.reply_text("📂 <b>User Data Upload:</b> Please upload your user list `.txt` file.", parse_mode='HTML')
-            context.user_data['state'] = 'ADM_USER_UP_F'
-            return
         elif raw == "🗑️ Clear Stock": 
             await dispatch_wipe_ui(update, context)
             return 
@@ -815,39 +683,6 @@ async def router_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if state == 'ADM_UP_C':
         context.user_data['temp_c'], context.user_data['state'] = raw, 'ADM_UP_F'
         await msg.reply_text(f"{get_flag(raw)} <b>Region set:</b> {raw}.\n📁 Now upload inventory .txt segment.", parse_mode='HTML')
-        return
-    elif state == 'ADM_SET_RATE':
-        try:
-            rate = float(raw)
-            country = context.user_data.get('temp_rate_country')
-            CACHE_RATES[country] = str(rate)
-            save_db()
-            await msg.reply_text(f"✅ Rate for <b>{country}</b> successfully updated to <b>Tk {rate}</b>.", parse_mode='HTML')
-        except ValueError:
-            await msg.reply_text("⚠️ Please enter a valid number for the rate.")
-        context.user_data['state'] = None
-        return
-    elif state == 'ADM_SET_CC':
-        try:
-            limit_val = int(raw)
-            country = context.user_data.get('temp_cc_country')
-            CACHE_LIMITS[country] = limit_val
-            save_db()
-            await msg.reply_text(f"✅ CC Limit for <b>{country}</b> successfully set to <b>{limit_val}</b> digits.", parse_mode='HTML')
-        except ValueError:
-            await msg.reply_text("⚠️ Please enter a valid integer for CC limit.")
-        context.user_data['state'] = None
-        return
-    elif state == 'ADM_SET_ULIMIT':
-        try:
-            ulimit_val = int(raw)
-            country = context.user_data.get('temp_ulimit_country')
-            CACHE_COUNTRY_USER_LIMITS[country] = ulimit_val
-            save_db()
-            await msg.reply_text(f"✅ User stock limit for <b>{country}</b> successfully set to <b>{ulimit_val}</b> numbers.", parse_mode='HTML')
-        except ValueError:
-            await msg.reply_text("⚠️ Please enter a valid integer for user limit.")
-        context.user_data['state'] = None
         return
     elif state == 'ADM_BROAD':
         asyncio.create_task(run_background_broadcast(context, raw))
@@ -917,63 +752,22 @@ async def router_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handler_file_up(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
-    if uid not in ADMIN_IDS: return
-    state = context.user_data.get('state')
-    
-    if state == 'ADM_UP_F':
-        try:
-            reg = context.user_data.get('temp_c', 'Unknown')
-            doc = await update.message.document.get_file()
-            path = f"tmp_{uid}.txt"
-            await doc.download_to_drive(path)
-            with open(path, "r", encoding='utf-8') as f:
-                nums = [line.strip() for line in f if line.strip()]
-            CACHE_STOCK[f"batch_{datetime.now().strftime('%Y%m%d%H%M%S')}"] = {"country": reg, "numbers": nums}
-            save_db()
-            await update.message.reply_text(f"✅ Success! Uploaded {len(nums)} numbers for {reg}")
-        except Exception as e:
-            await update.message.reply_text(f"❌ Error: {e}")
-        finally:
-            if 'path' in locals() and os.path.exists(path): os.remove(path)
-            context.user_data['state'] = None
-
-    elif state == 'ADM_USER_UP_F':
-        try:
-            doc = await update.message.document.get_file()
-            path = f"tmp_user_{uid}.txt"
-            await doc.download_to_drive(path)
-            
-            imported_count = 0
-            with open(path, "r", encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or "User List" in line or "=====" in line: continue
-                    
-                    id_match = re.search(r'ID:\s*(\d+)', line)
-                    name_match = re.search(r'Name:\s*([^|]+)', line)
-                    bal_match = re.search(r'Bal:\s*Tk\s*([\d\.]+)', line)
-                    
-                    if id_match:
-                        u_id = id_match.group(1)
-                        u_name = name_match.group(1).strip() if name_match else "User"
-                        u_bal = float(bal_match.group(1)) if bal_match else 0.0
-                        
-                        CACHE_USERS[u_id] = {
-                            'name': u_name,
-                            'balance': u_bal,
-                            'otp_count': CACHE_USERS.get(u_id, {}).get('otp_count', 0),
-                            'status': 'active',
-                            'joined_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        }
-                        imported_count += 1
-            
-            save_db()
-            await update.message.reply_text(f"✅ User Data Upload Successful!\nSuccessfully imported/updated <b>{imported_count}</b> users into the database.", parse_mode='HTML')
-        except Exception as e:
-            await update.message.reply_text(f"❌ Error parsing user data file: {e}")
-        finally:
-            if 'path' in locals() and os.path.exists(path): os.remove(path)
-            context.user_data['state'] = None
+    if uid not in ADMIN_IDS or context.user_data.get('state') != 'ADM_UP_F': return
+    try:
+        reg = context.user_data.get('temp_c', 'Unknown')
+        doc = await update.message.document.get_file()
+        path = f"tmp_{uid}.txt"
+        await doc.download_to_drive(path)
+        with open(path, "r", encoding='utf-8') as f:
+            nums = [line.strip() for line in f if line.strip()]
+        CACHE_STOCK[f"batch_{datetime.now().strftime('%Y%m%d%H%M%S')}"] = {"country": reg, "numbers": nums}
+        save_db()
+        await update.message.reply_text(f"✅ Success! Uploaded {len(nums)} numbers for {reg}")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {e}")
+    finally:
+        if 'path' in locals() and os.path.exists(path): os.remove(path)
+        context.user_data['state'] = None
 
 async def dispatch_country_ui(update, context):
     counts = {}
@@ -996,17 +790,11 @@ async def dispatch_wipe_ui(update, context):
     else: await update.message.reply_text("Stock empty.")
 
 async def dispatch_panel_stats_inline(message, context, edit=False):
-    status_main = await get_config_val("api_status_Main", "1")
-    status_teleroutex = await get_config_val("api_status_Teleroutex", "1")
-    ind_main = "🟢 ON" if status_main == "1" else "🔴 OFF"
-    ind_teleroutex = "🟢 ON" if status_teleroutex == "1" else "🔴 OFF"
-
-    kb = [
-        [rich_btn(f"Panel 1 (Main) | {ind_main}", "primary", "tog_api_Main")],
-        [rich_btn(f"Panel 2 (Teleroutex) | {ind_teleroutex}", "success", "tog_api_Teleroutex")],
-        [rich_btn("❌ Close Menu", "danger", "exit_session")]
-    ]
-    text = "📊 <b>Panel Control Stats</b>\n\nLive scrapers status for both panels."
+    status_val = await get_config_val("api_status_Main", "1")
+    indicator = "🟢 ON" if status_val == "1" else "🔴 OFF"
+    kb = [[rich_btn(f"Scraper Engine | {indicator}", "primary", "tog_api_Main")],
+          [rich_btn("❌ Close Menu", "danger", "exit_session")]]
+    text = "📊 <b>Panel Control Stats</b>\n\nLive background scraping status."
     if edit: await edit_rich_message(context.bot, message.chat_id, message.message_id, text, kb)
     else: await send_rich_message(context.bot, message.chat_id, text, kb)
 
@@ -1035,7 +823,7 @@ async def dispatch_country_rate_ui(update, context):
     countries = set(b_val.get('country') for b_val in CACHE_STOCK.values() if isinstance(b_val, dict) and b_val.get('country'))
     if countries:
         btns = [[rich_btn(f"Rate: {c}", "primary", f"adm_rate_{c}")] for c in countries]
-        await send_rich_message(context.bot, update.message.chat_id, "💰 Select country to set rate:", btns)
+        await send_rich_message(context.bot, update.message.chat_id, "💰 Select country:", btns)
     else: await update.message.reply_text("⚠️ No countries found.")
 
 async def dispatch_country_user_limit_ui(update, context):
@@ -1105,13 +893,11 @@ async def display_country_stock(update: Update, context: ContextTypes.DEFAULT_TY
     count = len(assigned_items)
     display_text = f"📦 <b>Active stocked numbers for {get_flag(country)} {country} ({count} nos):</b>\n\nClick any number below to delete it from your stock if unwanted:\n\n"
     
-    skip_limit = await get_country_cc_limit(country)
     kb = []
     for as_key, num in assigned_items[:25]:
         clean = normalize_num(num)
-        short_val = clean[skip_limit:] if len(clean) > skip_limit else clean
         kb.append([
-            rich_btn(f"+{short_val}", style="primary", copy_text=short_val),
+            rich_btn(f"+{clean}", style="primary", copy_text=clean),
             rich_btn("🗑️ Delete", style="danger", callback_data=f"user_del_num_{as_key}")
         ])
         
@@ -1136,15 +922,13 @@ async def download_country_stock_file(update: Update, context: ContextTypes.DEFA
         await query.answer("⚠️ No active stock found to export.", show_alert=True)
         return
         
-    skip_limit = await get_country_cc_limit(country)
     stream = StringIO()
     stream.write(f"Active Stock list for country: {country}\n")
     stream.write(f"Total synced: {len(numbers_list)}\n")
     stream.write("="*40 + "\n\n")
     for num in numbers_list:
         clean = normalize_num(num)
-        short_val = clean[skip_limit:] if len(clean) > skip_limit else clean
-        stream.write(f"{short_val}\n")
+        stream.write(f"+{clean}\n")
         
     bio = BytesIO(stream.getvalue().encode('utf-8'))
     bio.name = f"{country}_active_stock_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
@@ -1173,7 +957,8 @@ async def dispatch_leaderboard(message):
     if scores:
         out = f"🏆 <b>Daily Ranking (Since 12 AM Today):</b>\n\n"
         for i, (name, score) in enumerate(scores[:10], 1):
-            out += f"{i}. <b>{html.escape(name)}</b> - OTP Success: <b>{score}</b>\n"
+            cl_name = name[:-3] if len(name) > 3 else "User"
+            out += f"{i}. {cl_name}... - OTP Success: {score}\n"
         await message.reply_text(out, parse_mode='HTML')
     else: 
         await message.reply_text("⚠️ Terminal Data: No activity yet today.")
@@ -1183,8 +968,7 @@ async def check_is_restricted(uid):
     return u_val.get('status') == 'banned' if isinstance(u_val, dict) else False
 
 async def app_post_init(app):
-    asyncio.create_task(background_selenium_scraper_1(app))
-    asyncio.create_task(background_selenium_scraper_2(app))
+    asyncio.create_task(background_selenium_scraper(app))
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error("Exception occurred during live update cycle:", exc_info=context.error)
@@ -1198,7 +982,7 @@ if __name__ == '__main__':
         instance.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), router_text))
         instance.add_error_handler(error_handler)
         
-        logger.info("Bot started successfully with Panel 2 memory crash fix.")
+        logger.info("Bot started successfully with complete bug fixes.")
         instance.run_polling(drop_pending_updates=True)
     except Exception as e:
         logger.critical(f"Panic Shutdown: {e}")
