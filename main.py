@@ -185,7 +185,6 @@ def parse_otp_body(text):
 
 def rich_btn(text, style=None, callback_data=None, url=None, copy_text=None):
     btn = {"text": text}
-    if style: btn["style"] = style 
     if callback_data: btn["callback_data"] = callback_data
     if url: btn["url"] = url
     if copy_text: btn["copy_text"] = {"text": copy_text}
@@ -200,8 +199,11 @@ async def send_rich_message(bot, chat_id, text, keyboard_rows, parse_mode='HTML'
     url = f"https://api.telegram.org/bot{bot.token}/sendMessage"
     try:
         resp = await http_client.post(url, json=payload)
+        if resp.status_code != 200:
+            logger.error(f"Dispatch failure status {resp.status_code}: {resp.text}")
         return resp.json()
-    except Exception as e: logger.error(f"Dispatch failure: {e}")
+    except Exception as e: 
+        logger.error(f"Dispatch exception failure: {e}")
 
 async def edit_rich_message(bot, chat_id, message_id, text, keyboard_rows, parse_mode='HTML'):
     payload = {
@@ -211,8 +213,11 @@ async def edit_rich_message(bot, chat_id, message_id, text, keyboard_rows, parse
     url = f"https://api.telegram.org/bot{bot.token}/editMessageText"
     try:
         resp = await http_client.post(url, json=payload)
+        if resp.status_code != 200:
+            logger.error(f"Edit failure status {resp.status_code}: {resp.text}")
         return resp.json()
-    except Exception as e: logger.error(f"Edit failure: {e}")
+    except Exception as e: 
+        logger.error(f"Edit exception failure: {e}")
 
 def build_admin_main():
     kb = [
@@ -635,8 +640,8 @@ async def router_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     elif raw == "💸 Withdraw Funds":
         kb = [[rich_btn("Bkash", style="primary", callback_data="w_method_Bkash"),
-                rich_btn("Nagad", style="success", callback_data="w_method_Nagad"),
-                rich_btn("Rocket", style="danger", callback_data="w_method_Rocket")]]
+               rich_btn("Nagad", style="success", callback_data="w_method_Nagad"),
+               rich_btn("Rocket", style="danger", callback_data="w_method_Rocket")]]
         await send_rich_message(context.bot, uid, "💳 <b>Select Payout Channel:</b>", kb)
         return
 
