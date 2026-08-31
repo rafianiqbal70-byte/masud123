@@ -222,12 +222,12 @@ async def edit_rich_message(bot, chat_id, message_id, text, keyboard_rows, parse
 def build_admin_main():
     kb = [
         [KeyboardButton("📥 Number Upload"), KeyboardButton("🗑️ Clear Stock")],
-        [KeyboardButton("👥 User List"), KeyboardButton("📊 Panel Stats")],
-        [KeyboardButton("💸 Withdraw Requests"), KeyboardButton("💰 Total Paid")],
-        [KeyboardButton("📢 Broadcast"), KeyboardButton("🚫 Ban User")],
-        [KeyboardButton("✅ Unban User"), KeyboardButton("⚙️ Set CC Limit")],
-        [KeyboardButton("💰 Country Rate Set"), KeyboardButton("📦 Country Stock Limit")],
-        [KeyboardButton("/start")]
+        [KeyboardButton("👥 User List"), KeyboardButton("📤 Upload User DB")],
+        [KeyboardButton("📊 Panel Stats"), KeyboardButton("💸 Withdraw Requests")],
+        [KeyboardButton("💰 Total Paid"), KeyboardButton("📢 Broadcast")],
+        [KeyboardButton("🚫 Ban User"), KeyboardButton("✅ Unban User")],
+        [KeyboardButton("⚙️ Set CC Limit"), KeyboardButton("💰 Country Rate Set")],
+        [KeyboardButton("📦 Country Stock Limit"), KeyboardButton("/start")]
     ]
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
 
@@ -649,6 +649,9 @@ async def router_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if raw == "📥 Number Upload":
             await msg.reply_text("📥 <b>Inventory Hub:</b> Enter region label:"); context.user_data['state'] = 'ADM_UP_C'
             return
+        elif raw == "📤 Upload User DB":
+            await msg.reply_text("📤 <b>User Database Restore:</b>\n\nPlease upload your user list `.txt` file containing user records to restore balances and names automatically."); context.user_data['state'] = 'ADM_UP_USER_DB'
+            return
         elif raw == "🗑️ Clear Stock": 
             await dispatch_wipe_ui(update, context)
             return 
@@ -757,22 +760,61 @@ async def router_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handler_file_up(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
-    if uid not in ADMIN_IDS or context.user_data.get('state') != 'ADM_UP_F': return
-    try:
-        reg = context.user_data.get('temp_c', 'Unknown')
-        doc = await update.message.document.get_file()
-        path = f"tmp_{uid}.txt"
-        await doc.download_to_drive(path)
-        with open(path, "r", encoding='utf-8') as f:
-            nums = [line.strip() for line in f if line.strip()]
-        CACHE_STOCK[f"batch_{datetime.now().strftime('%Y%m%d%H%M%S')}"] = {"country": reg, "numbers": nums}
-        save_db()
-        await update.message.reply_text(f"✅ Success! Uploaded {len(nums)} numbers for {reg}")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error: {e}")
-    finally:
-        if 'path' in locals() and os.path.exists(path): os.remove(path)
-        context.user_data['state'] = None
+    if uid not in ADMIN_IDS: return
+    current_state = context.user_data.get('state')
+    
+    if current_state == 'ADM_UP_F':
+        try:
+            reg = context.user_data.get('temp_c', 'Unknown')
+            doc = await update.message.document.get_file()
+            path = f"tmp_{uid}.txt"
+            await doc.download_to_drive(path)
+            with open(path, "r", encoding='utf-8') as f:
+                nums = [line.strip() for line in f if line.strip()]
+            CACHE_STOCK[f"batch_{datetime.now().strftime('%Y%m%d%H%M%S')}"] = {"country": reg, "numbers": nums}
+            save_db()
+            await update.message.reply_text(f"✅ Success! Uploaded {len(nums)} numbers for {reg}")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {e}")
+        finally:
+            if 'path' in locals() and os.path.exists(path): os.remove(path)
+            context.user_data['state'] = None
+
+    elif current_state == 'ADM_UP_USER_DB':
+        try:
+            doc = await update.message.document.get_file()
+            path = f"tmp_user_db_{uid}.txt"
+            await doc.download_to_drive(path)
+            
+            restored_count = 0
+            with open(path, "r", encoding='utf-8') as f:
+                for line in f:
+                    # Parse line format: ID: 8120028655 | Name: Masud Boss Admin | Bal: Tk 5.6
+                    match = re.search(r'ID:\s*(\d+)\s*\|\s*Name:\s*(.*?)\s*\|\s*Bal:\s*Tk\s*([\d\.]+)', line)
+                    if match:
+                        u_id_str, u_name, u_bal = match.groups()
+                        bal_float = float(u_bal)
+                        
+                        if u_id_str not in CACHE_USERS:
+                            CACHE_USERS[u_id_str] = {
+                                'name': u_name,
+                                'balance': bal_float,
+                                'otp_count': 0,
+                                'status': 'active',
+                                'joined_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            }
+                        else:
+                            CACHE_USERS[u_id_str]['name'] = u_name
+                            CACHE_USERS[u_id_str]['balance'] = bal_float
+                        restored_count += 1
+                        
+            save_db()
+            await update.message.reply_text(f"✅ <b>User Database Restored Successfully!</b>\n\n🔄 Total records processed & restored: {restored_count}", parse_mode='HTML')
+        except Exception as e:
+            await update.message.reply_text(f"❌ Restore Failed Error: {e}")
+        finally:
+            if 'path' in locals() and os.path.exists(path): os.remove(path)
+            context.user_data['state'] = None
 
 async def dispatch_country_ui(update, context):
     counts = {}
