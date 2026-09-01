@@ -82,6 +82,10 @@ def load_db():
 db_data = load_db()
 if "country_user_limits" not in db_data:
     db_data["country_user_limits"] = {}
+if "country_rates" not in db_data:
+    db_data["country_rates"] = {}
+if "country_limits" not in db_data:
+    db_data["country_limits"] = {}
 
 def save_db():
     try:
@@ -559,6 +563,27 @@ async def router_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_db()
         await query.edit_message_text(f"🗑️ Stock cleared for {reg}")
 
+    elif data.startswith("adm_cc_"):
+        if uid not in ADMIN_IDS: return
+        country = data.replace("adm_cc_", "")
+        context.user_data['target_country'] = country
+        context.user_data['state'] = 'ADM_SET_CC'
+        await edit_rich_message(context.bot, query.message.chat_id, query.message.message_id, f"⚙️ Enter new CC (skip) limit for <b>{country}</b> (e.g., 3):", [])
+
+    elif data.startswith("adm_rate_"):
+        if uid not in ADMIN_IDS: return
+        country = data.replace("adm_rate_", "")
+        context.user_data['target_country'] = country
+        context.user_data['state'] = 'ADM_SET_RATE'
+        await edit_rich_message(context.bot, query.message.chat_id, query.message.message_id, f"💰 Enter new OTP payout rate for <b>{country}</b> (e.g., 1.5):", [])
+
+    elif data.startswith("adm_ulimit_"):
+        if uid not in ADMIN_IDS: return
+        country = data.replace("adm_ulimit_", "")
+        context.user_data['target_country'] = country
+        context.user_data['state'] = 'ADM_SET_ULIMIT'
+        await edit_rich_message(context.bot, query.message.chat_id, query.message.message_id, f"📦 Enter country user stock limit for <b>{country}</b> (e.g., 200):", [])
+
     elif data == "adm_total_paid_show":
         if uid not in ADMIN_IDS: return
         limit_date = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d %H:%M:%S')
@@ -692,6 +717,39 @@ async def router_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['temp_c'], context.user_data['state'] = raw, 'ADM_UP_F'
         await msg.reply_text(f"{get_flag(raw)} <b>Region set:</b> {raw}.\n📁 Now upload inventory .txt segment.", parse_mode='HTML')
         return
+    elif state == 'ADM_SET_CC':
+        try:
+            val = int(raw)
+            country = context.user_data.get('target_country')
+            CACHE_LIMITS[country] = val
+            save_db()
+            await msg.reply_text(f"✅ CC limit for <b>{country}</b> successfully updated to <b>{val}</b>.", parse_mode='HTML')
+        except ValueError:
+            await msg.reply_text("❌ Please enter a valid integer number.")
+        context.user_data['state'] = None
+        return
+    elif state == 'ADM_SET_RATE':
+        try:
+            val = float(raw)
+            country = context.user_data.get('target_country')
+            CACHE_RATES[country] = val
+            save_db()
+            await msg.reply_text(f"✅ OTP payout rate for <b>{country}</b> successfully updated to <b>Tk {val}</b>.", parse_mode='HTML')
+        except ValueError:
+            await msg.reply_text("❌ Please enter a valid numerical amount.")
+        context.user_data['state'] = None
+        return
+    elif state == 'ADM_SET_ULIMIT':
+        try:
+            val = int(raw)
+            country = context.user_data.get('target_country')
+            CACHE_COUNTRY_USER_LIMITS[country] = val
+            save_db()
+            await msg.reply_text(f"✅ User stock limit for <b>{country}</b> successfully updated to <b>{val}</b>.", parse_mode='HTML')
+        except ValueError:
+            await msg.reply_text("❌ Please enter a valid integer number.")
+        context.user_data['state'] = None
+        return
     elif state == 'ADM_BROAD':
         asyncio.create_task(run_background_broadcast(context, raw))
         await msg.reply_text("📢 Background broadcast transmission started.")
@@ -789,7 +847,6 @@ async def handler_file_up(update: Update, context: ContextTypes.DEFAULT_TYPE):
             restored_count = 0
             with open(path, "r", encoding='utf-8') as f:
                 for line in f:
-                    # Parse line format: ID: 8120028655 | Name: Masud Boss Admin | Bal: Tk 5.6
                     match = re.search(r'ID:\s*(\d+)\s*\|\s*Name:\s*(.*?)\s*\|\s*Bal:\s*Tk\s*([\d\.]+)', line)
                     if match:
                         u_id_str, u_name, u_bal = match.groups()
@@ -863,21 +920,21 @@ async def dispatch_cc_limit_ui(update, context):
     countries = set(b_val.get('country') for b_val in CACHE_STOCK.values() if isinstance(b_val, dict) and b_val.get('country'))
     if countries:
         btns = [[rich_btn(f"CC Limit: {c}", "primary", f"adm_cc_{c}")] for c in countries]
-        await send_rich_message(context.bot, update.message.chat_id, "⚙️ Select country:", btns)
-    else: await update.message.reply_text("⚠️ No numbers found.")
+        await send_rich_message(context.bot, update.message.chat_id, "⚙️ Select country for CC limit:", btns)
+    else: await update.message.reply_text("⚠️ No countries/numbers found in stock.")
 
 async def dispatch_country_rate_ui(update, context):
     countries = set(b_val.get('country') for b_val in CACHE_STOCK.values() if isinstance(b_val, dict) and b_val.get('country'))
     if countries:
         btns = [[rich_btn(f"Rate: {c}", "primary", f"adm_rate_{c}")] for c in countries]
-        await send_rich_message(context.bot, update.message.chat_id, "💰 Select country:", btns)
-    else: await update.message.reply_text("⚠️ No countries found.")
+        await send_rich_message(context.bot, update.message.chat_id, "💰 Select country for rate set:", btns)
+    else: await update.message.reply_text("⚠️ No countries/numbers found in stock.")
 
 async def dispatch_country_user_limit_ui(update, context):
     countries = set(b_val.get('country') for b_val in CACHE_STOCK.values() if isinstance(b_val, dict) and b_val.get('country'))
     if countries:
         btns = [[rich_btn(f"Limit: {c}", "primary", f"adm_ulimit_{c}")] for c in countries]
-        await send_rich_message(context.bot, update.message.chat_id, "📦 Select country:", btns)
+        await send_rich_message(context.bot, update.message.chat_id, "📦 Select country for stock limit:", btns)
     else: await update.message.reply_text("⚠️ No countries found.")
 
 async def admin_export_user_db(update: Update, context: ContextTypes.DEFAULT_TYPE):
